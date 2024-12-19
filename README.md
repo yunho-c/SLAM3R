@@ -61,18 +61,6 @@ Set the required parameter in this [script](./scripts/demo_wild.sh), and then ru
 
  > You can run SLAM3R on your self-captured video with the steps above. 
 
-## Citation
-
-If you find our work helpful in your research, please consider citing:
-```
-@article{slam3r,
-  title={SLAM3R: Real-Time Dense Scene Reconstruction from Monocular RGB Videos},
-  author={Liu, Yuzheng and Dong, Siyan and Wang, Shuzhe and Yin, Yingda and Yang, Yanchao and Fan, Qingnan and Chen, Baoquan},
-  journal={arXiv preprint arXiv:2412.09401},
-  year={2024}
-}
-```
-
 ## Acknowledgments
 
 Our implementation is based on several awesome repositories:
