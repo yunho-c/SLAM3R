@@ -146,7 +146,7 @@ def load_images(folder_or_list, size, square_ok=False,
         imgs.append(dict(img=ImgNorm(img)[None], true_shape=np.int32(
             [img.size[::-1]]), idx=len(imgs), instance=str(len(imgs)), label=path))
             
-    assert imgs, 'no images foud at '+root
+    assert imgs, 'no images foud at '+ root 
     if verbose > 0:
         print(f' ({len(imgs)} images loaded)')
     return imgs

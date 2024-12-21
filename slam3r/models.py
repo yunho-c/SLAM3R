@@ -177,7 +177,7 @@ class Multiview3D(nn.Module):
         self.head1 = transpose_to_landscape(self.downstream_head1, activate=landscape_only)
         self.head2 = transpose_to_landscape(self.downstream_head2, activate=landscape_only)
 
-    #TODO:patchembed, from pretrained, freeze, 其他引用的文件
+    #TODO: from Huggingdface pretrained
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, **kw):
         if os.path.isfile(pretrained_model_name_or_path):

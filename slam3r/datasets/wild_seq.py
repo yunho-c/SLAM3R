@@ -29,7 +29,7 @@ class Seq_Data():
         assert img_size==224, "Sorry, only img_size=224 is supported now."
 
         # load imgs with sequential number.
-        # Imgs in the img_dir should have number in their name to indicate the order,
+        # Imgs in the img_dir should have number in their names to indicate the order,
         # such as frame-0031.color.png, output_414.jpg, ...
         self.imgs = load_images(img_dir, size=img_size, 
                                 verbose=not silent, img_freq=sample_freq,

@@ -26,8 +26,8 @@ start_idx=0, num_views=-1, start_freq=1, to_tensor=True)"
 # for defination of these parameters, please refer to the recon.py
 ######################################################################################
 TEST_NAME="Replica_demo"
-KEYFRAME_FREQ=20
-UPDATE_BUFFER_FREQ=3
+KEYFRAME_STRIDE=20
+UPDATE_BUFFER_INTV=3
 MAX_NUM_REGISTER=10
 WIN_R=5
 NUM_SCENE_FRAME=10
@@ -47,12 +47,12 @@ python recon.py \
 --i2p_model "${I2P_MODEL}" \
 --i2p_weights "${I2P_WEIGHT_PATH}" \
 --gpu_id $GPU_ID \
---keyframe_freq $KEYFRAME_FREQ \
+--keyframe_stride $KEYFRAME_STRIDE \
 --win_r $WIN_R \
 --num_scene_frame $NUM_SCENE_FRAME \
 --initial_winsize $INITIAL_WINSIZE \
 --conf_thres_l2w $CONF_THRES_L2W \
 --conf_thres_i2p $CONF_THRES_I2P \
 --num_points_save $NUM_POINTS_SAVE \
---update_buffer_freq $UPDATE_BUFFER_FREQ \
+--update_buffer_intv $UPDATE_BUFFER_INTV \
 --max_num_register $MAX_NUM_REGISTER

@@ -1,8 +1,40 @@
-# SLAM3R    
+<!-- # SLAM3R    
 
 Paper: [arXiv](http://arxiv.org/abs/2412.09401)
 
-TL;DR: A real-time RGB SLAM system that performs dense 3D reconstruction via points regression with feed-forward neural networks. 
+TL;DR: A real-time RGB SLAM system that performs dense 3D reconstruction via points regression with feed-forward neural networks. -->
+
+
+<p align="center">
+  <h2 align="center">SLAM3R: Real-Time Dense Scene Reconstruction from Monocular RGB Videos</h2>
+ <p align="center">
+    <a href="https://github.com/Ly-kc">Yuzheng Liu*</a>
+    ·
+    <a href="https://siyandong.github.io/">Siyan Dong*</a>
+    ·
+    <a href="https://ffrivera0.github.io/">Shuzhe Wang</a>
+    ·
+    <a href="https://yanchaoyang.github.io/">Yanchao Yang</a>
+    ·
+    <a href="https://fqnchina.github.io/">Qingnan Fan</a>
+    ·
+    <a href="https://baoquanchen.info/">Baoquan Chen</a>
+  </p>
+  <h3 align="center"><a href="https://arxiv.org/abs/2412.09401">Paper</a> | <a href="">Online Demo (Coming Soon)</a> </h3>
+  <div align="center"></div>
+</p>
+
+<p align="center">
+  <a href="">
+    <img src="./media/wild.png" alt="Teaser" width="100%">
+  </a>
+</p>
+
+<p align="center">
+<strong>SLAM3R</strong> is a real-time dense scene reconstruction system that regresses 3D points from video frames using feed-forward neural networks, without explicitly estimating camera parameters. 
+</p>
+<be>
+
 
 ## TODO List
 
@@ -59,7 +91,21 @@ Set the required parameter in this [script](./scripts/demo_wild.sh), and then ru
  bash scripts/demo_wild.sh
  ```
 
- > You can run SLAM3R on your self-captured video with the steps above. 
+You can run SLAM3R on your self-captured video with the steps above. Here are [some tips](./docs/recon_tips.md) for it
+
+
+## Citation
+
+If you find our work helpful in your research, please consider citing: 
+```
+@article{slam3r,
+  title={SLAM3R: Real-Time Dense Scene Reconstruction from Monocular RGB Videos},
+  author={Liu, Yuzheng and Dong, Siyan and Wang, Shuzhe and Yang, Yanchao and Fan, Qingnan and Chen, Baoquan},
+  journal={arXiv preprint arXiv:2412.09401},
+  year={2024}
+}
+```
+
 
 ## Acknowledgments
 

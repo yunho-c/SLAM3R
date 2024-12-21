@@ -26,9 +26,8 @@ start_idx=0, num_views=-1, start_freq=1, to_tensor=True)"
 # for defination of these parameters, please refer to the recon.py
 ######################################################################################
 TEST_NAME="wild_demo"
-KEYFRAME_FREQ=-1
+KEYFRAME_STRIDE=-1     #-1 for auto-adaptive keyframe stride selection
 WIN_R=5
-UPDATE_BUFFER_FREQ=1
 MAX_NUM_REGISTER=10
 NUM_SCENE_FRAME=10
 INITIAL_WINSIZE=5 
@@ -36,9 +35,13 @@ CONF_THRES_L2W=12
 CONF_THRES_I2P=1.5
 NUM_POINTS_SAVE=1000000
 
-KEYFRAME_FREQ_MIN=1
-KEYFRAME_FREQ_MAX=20
-KEYFRAME_FREQ_STRIDE=1
+UPDATE_BUFFER_INTV=1
+BUFFER_SIZE=100       # -1 if size is not limited
+BUFFER_STRATEGY="reservoir"  # or "fifo"
+
+KEYFRAME_ADAPT_MIN=1
+KEYFRAME_ADAPT_MAX=20
+KEYFRAME_ADAPT_STRIDE=1
 
 GPU_ID=-1
 
@@ -50,15 +53,17 @@ python recon.py \
 --i2p_model "${I2P_MODEL}" \
 --i2p_weights "${I2P_WEIGHT_PATH}" \
 --gpu_id $GPU_ID \
---keyframe_freq $KEYFRAME_FREQ \
+--keyframe_stride $KEYFRAME_STRIDE \
 --win_r $WIN_R \
 --num_scene_frame $NUM_SCENE_FRAME \
 --initial_winsize $INITIAL_WINSIZE \
 --conf_thres_l2w $CONF_THRES_L2W \
 --conf_thres_i2p $CONF_THRES_I2P \
 --num_points_save $NUM_POINTS_SAVE \
---update_buffer_freq $UPDATE_BUFFER_FREQ \
+--update_buffer_intv $UPDATE_BUFFER_INTV \
+--buffer_size $BUFFER_SIZE \
+--buffer_strategy "${BUFFER_STRATEGY}" \
 --max_num_register $MAX_NUM_REGISTER \
---keyframe_freq_min $KEYFRAME_FREQ_MIN \
---keyframe_freq_max $KEYFRAME_FREQ_MAX \
---keyframe_freq_stride $KEYFRAME_FREQ_STRIDE
+--keyframe_adapt_min $KEYFRAME_ADAPT_MIN \
+--keyframe_adapt_max $KEYFRAME_ADAPT_MAX \
+--keyframe_adapt_stride $KEYFRAME_ADAPT_STRIDE

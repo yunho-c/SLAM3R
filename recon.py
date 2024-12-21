@@ -26,8 +26,8 @@ parser.add_argument("--test_name", type=str, required=True, help="name of the te
 parser.add_argument('--save_all_views', action='store_true', help='whether to save all views respectively')
 
 # agrs for the whole scene reconstruction
-parser.add_argument("--keyframe_freq", type=int, default=-1, 
-                    help="the frequency of sampling keyframes, -1 for auto adaptation")
+parser.add_argument("--keyframe_stride", type=int, default=-1, 
+                    help="the stride of sampling keyframes, -1 for auto adaptation")
 parser.add_argument("--initial_winsize", type=int, default=5, 
                     help="the number of initial frames to be used for scene initialization")
 parser.add_argument("--win_r", type=int, default=3, 
@@ -39,20 +39,25 @@ parser.add_argument("--num_scene_frame", type=int, default=10,
                         buffering set when registering new keyframes")
 parser.add_argument("--max_num_register", type=int, default=10, 
                     help="maximal number of frames to be registered in one go")
-parser.add_argument("--update_buffer_freq", type=float, default=1, 
-                    help="the frequency of updating the buffering set")
 parser.add_argument("--conf_thres_l2w", type=float, default=12, 
                     help="confidence threshold for the l2w model(when saving final results)")
 parser.add_argument("--num_points_save", type=int, default=2000000, 
                     help="number of points to be saved in the final reconstruction")
 
+parser.add_argument("--update_buffer_intv", type=float, default=1, 
+                    help="the interval of updating the buffering set")
+parser.add_argument('--buffer_size', type=int, default=100, 
+                    help='maximal size of the buffering set, -1 if infinite')
+parser.add_argument("--buffer_strategy", type=str, choices=['reservoir', 'fifo'], default='reservoir', 
+                    help='strategy for maintaining the buffering set: reservoir-sampling or first-in-first-out')
+
 #params for auto adaptation of keyframe frequency
-parser.add_argument("--keyframe_freq_min", type=int, default=1, 
-                    help="minimal frequency of sampling keyframes when auto adaptation")
-parser.add_argument("--keyframe_freq_max", type=int, default=20, 
-                    help="maximal frequency of sampling keyframes when auto adaptation")
-parser.add_argument("--keyframe_freq_stride", type=int, default=1, 
-                    help="stride for trying different keyframe frequencies")
+parser.add_argument("--keyframe_adapt_min", type=int, default=1, 
+                    help="minimal stride of sampling keyframes when auto adaptation")
+parser.add_argument("--keyframe_adapt_max", type=int, default=20, 
+                    help="maximal stride of sampling keyframes when auto adaptation")
+parser.add_argument("--keyframe_adapt_stride", type=int, default=1, 
+                    help="stride for trying different keyframe stride")
 
 parser.add_argument("--seed", type=int, default=42, help="seed for python random")
 parser.add_argument('--gpu_id', type=int, default=-1, help='gpu id, -1 for auto select')
@@ -186,6 +191,10 @@ def scene_frame_retrieve(candi_views:list, src_views:list, i2p_model,
         selected_views: the selected scene frames
         sel_ids: the ids of selected scene frames in candi_views
     """
+    num_candi_views = len(candi_views)
+    if sel_num >= num_candi_views:
+        return candi_views, list(range(num_candi_views))
+    
     batch_inputs = []
     for bch in range(len(src_views)):
         input_views = []
@@ -292,34 +301,34 @@ def initialize_scene(views:list, model:Image2PointsModel, winsize=5, conf_thres=
     return initial_pcds, initial_confs
     
     
-def adapt_keyframe_freq(views:list, model:Image2PointsModel, win_r = 3,
-                        sample_wind_num=10, min_freq=1, max_freq=20, stride=1):
-    """try different keyframe sampling frequencies to find the best one,
+def adapt_keyframe_stride(views:list, model:Image2PointsModel, win_r = 3,
+                        sample_wind_num=10, adapt_min=1, adapt_max=20, adapt_stride=1):
+    """try different keyframe sampling stride to find the best one,
     so that the camera motion between two keyframes can be suitable. 
 
     Args:
         win_r: radius of the window
         sample_wind_num: the number of windows to be sampled for testing
-        min_ferq: the minimum frequency to be tried
-        max_freq: the maximum frequency to be tried
-        stride: the stride of the frequency to be tried
+        adapt_min: the minimum stride to be tried
+        adapt_max: the maximum stride to be tried
+        stride: the stride of the stride to be tried
     """
     num_views = len(views)
-    best_freq = 1
+    best_stride = 1
     best_conf_mean = -100
-    # if freq*(win_r+1)*2 >= num_views:
+    # if stride*(win_r+1)*2 >= num_views:
             # break
-    max_freq = min((num_views-1)//(2*win_r), max_freq)  
-    for freq in tqdm(range(min_freq, max_freq+1, stride), "trying keyframe frequency"):
-        sampled_ref_ids = np.random.choice(range(win_r*freq, num_views-win_r*freq), 
-                                           min(num_views-2*win_r*freq, sample_wind_num), 
+    adapt_max = min((num_views-1)//(2*win_r), adapt_max)  
+    for stride in tqdm(range(adapt_min, adapt_max+1, adapt_stride), "trying keyframe stride"):
+        sampled_ref_ids = np.random.choice(range(win_r*stride, num_views-win_r*stride), 
+                                           min(num_views-2*win_r*stride, sample_wind_num), 
                                            replace=False)  
         batch_input_views = []
         for view_id in sampled_ref_ids:
             sel_ids = [view_id]
             for i in range(1,win_r+1):
-                sel_ids.append(view_id-i*freq)
-                sel_ids.append(view_id+i*freq)
+                sel_ids.append(view_id-i*stride)
+                sel_ids.append(view_id+i*stride)
             local_views = [views[id] for id in sel_ids]
             batch_input_views.append(local_views)            
         output = my_inference_batch(batch_input_views, model, ref_id=0, 
@@ -329,9 +338,9 @@ def adapt_keyframe_freq(views:list, model:Image2PointsModel, win_r = 3,
         conf_mean = pred_confs.mean().item()
         if conf_mean > best_conf_mean:
             best_conf_mean = conf_mean
-            best_freq = freq
-    print(f'choose {best_freq} as the frequence for sampling keyframes, with a mean confidence of {best_conf_mean:.2f}', )
-    return best_freq
+            best_stride = stride
+    print(f'choose {best_stride} as the stride for sampling keyframes, with a mean confidence of {best_conf_mean:.2f}', )
+    return best_stride
 
 def scene_recon_pipeline(i2p_model:Image2PointsModel, 
                          l2w_model:Local2WorldModel, 
@@ -383,17 +392,17 @@ def scene_recon_pipeline(i2p_model:Image2PointsModel,
                               true_shape=data_views[i]['true_shape'], 
                               img_pos=res_poses[i]))
     
-    # decide the frequency of sampling keyframes, as well as other related parameters
-    if args.keyframe_freq == -1:
-        keyframe_freq = adapt_keyframe_freq(input_views, i2p_model, 
-                                            min_freq=args.keyframe_freq_min,
-                                            max_freq=args.keyframe_freq_max,
-                                            stride=args.keyframe_freq_stride)
+    # decide the stride of sampling keyframes, as well as other related parameters
+    if args.keyframe_stride == -1:
+        keyframe_stride = adapt_keyframe_stride(input_views, i2p_model, 
+                                            adapt_min=args.keyframe_adapt_min,
+                                            adapt_max=args.keyframe_adapt_max,
+                                            adapt_stride=args.keyframe_adapt_stride)
     else:
-        keyframe_freq = args.keyframe_freq
+        keyframe_stride = args.keyframe_stride
     
     # initialize the scene with the first several frames
-    initial_pcds, initial_confs = initialize_scene(input_views[:initial_winsize*keyframe_freq:keyframe_freq], 
+    initial_pcds, initial_confs = initialize_scene(input_views[:initial_winsize*keyframe_stride:keyframe_stride], 
                                                    i2p_model, 
                                                    winsize=initial_winsize) # 5*(1,224,224,3)
     
@@ -405,27 +414,29 @@ def scene_recon_pipeline(i2p_model:Image2PointsModel,
     
     # set up the world coordinates with the initial window
     for i in range(init_num):
-        registered_confs[i*keyframe_freq] = initial_confs[i][0].to(args.device)  # 224,224
-        registered_confs_mean[i*keyframe_freq] = registered_confs[i*keyframe_freq].mean().cpu()
-        registered_pcds[i*keyframe_freq] = initial_pcds[i][0].to(args.device)  # 224,224,3
+        registered_confs[i*keyframe_stride] = initial_confs[i][0].to(args.device)  # 224,224
+        registered_confs_mean[i*keyframe_stride] = registered_confs[i*keyframe_stride].mean().cpu()
+        registered_pcds[i*keyframe_stride] = initial_pcds[i][0].to(args.device)  # 224,224,3
 
     # initialize the buffering set with the initial window
-    buffering_set_ids = [i*keyframe_freq for i in range(init_num)]
+    assert args.buffer_size <= 0 or args.buffer_size >= init_num 
+    buffering_set_ids = [i*keyframe_stride for i in range(init_num)]
     
     # set up the world coordinates with frames in the initial window
     for i in range(init_num):
-        input_views[i*keyframe_freq]['pts3d_world'] = initial_pcds[i]
+        input_views[i*keyframe_stride]['pts3d_world'] = initial_pcds[i]
     initial_valid_masks = [conf > conf_thres_i2p for conf in initial_confs] # 1,224,224
-    normed_pts = normalize_views([view['pts3d_world'] for view in input_views[:init_num*keyframe_freq:keyframe_freq]],
+    normed_pts = normalize_views([view['pts3d_world'] for view in input_views[:init_num*keyframe_stride:keyframe_stride]],
                                                 initial_valid_masks)
     for i in range(init_num):
-        input_views[i*keyframe_freq]['pts3d_world'] = normed_pts[i]
+        input_views[i*keyframe_stride]['pts3d_world'] = normed_pts[i]
         # filter out points with low confidence
-        input_views[i*keyframe_freq]['pts3d_world'][~initial_valid_masks[i]] = 0       
+        input_views[i*keyframe_stride]['pts3d_world'][~initial_valid_masks[i]] = 0       
 
     # recover the pointmap of each view in their local coordinates with the I2P model
     # TODO: batchify
     local_confs_mean = []
+    adj_distance = keyframe_stride
     for view_id in tqdm(range(num_views), desc="I2P resonstruction"):
         # if in the initial window, directly use the registered pcds
         if view_id in buffering_set_ids:
@@ -434,10 +445,10 @@ def scene_recon_pipeline(i2p_model:Image2PointsModel,
         # construct the local window 
         sel_ids = [view_id]
         for i in range(1,win_r+1):
-            if view_id-i*keyframe_freq >= 0:
-                sel_ids.append(view_id-i*keyframe_freq)
-            if view_id+i*keyframe_freq < num_views:
-                sel_ids.append(view_id+i*keyframe_freq)
+            if view_id-i*adj_distance >= 0:
+                sel_ids.append(view_id-i*adj_distance)
+            if view_id+i*adj_distance < num_views:
+                sel_ids.append(view_id+i*adj_distance)
         local_views = [input_views[id] for id in sel_ids]
         ref_id = 0 
         # recover points in the local window, and save the keyframe points and confs
@@ -449,14 +460,14 @@ def scene_recon_pipeline(i2p_model:Image2PointsModel,
                                                     [valid_mask])[0]
         input_views[view_id]['pts3d_cam'][~valid_mask] = 0 
         local_confs_mean.append(output['preds'][ref_id]['conf'][0].mean().cpu()) # 224,224
-    print(f'finish recovering pcds of {len(local_confs_mean)} frames in their local coordinates')
+    print(f'finish recovering pcds of {len(local_confs_mean)} frames in their local coordinates, with a mean confidence of {torch.stack(local_confs_mean).mean():.2f}')
 
     # Special treatment: register the frames within the range of initial window with L2W model
     # TODO: batchify
-    if keyframe_freq > 1:
+    if keyframe_stride > 1:
         max_conf_mean = -1
-        for view_id in tqdm(range((init_num-1)*keyframe_freq), desc="pre-registering"):  
-            if view_id % keyframe_freq == 0:
+        for view_id in tqdm(range((init_num-1)*keyframe_stride), desc="pre-registering"):  
+            if view_id % keyframe_stride == 0:
                 continue
             # construct the input for L2W model
             inputs = tuple([input_views[view_id]] + [input_views[id] for id in buffering_set_ids])
@@ -472,26 +483,29 @@ def scene_recon_pipeline(i2p_model:Image2PointsModel,
             
             if registered_confs_mean[view_id] > max_conf_mean:
                 max_conf_mean = registered_confs_mean[view_id]
-        print(f'finish aligning {(init_num-1)*keyframe_freq} head frames, with a max mean confidence of {max_conf_mean:.2f}')
+        print(f'finish aligning {(init_num-1)*keyframe_stride} head frames, with a max mean confidence of {max_conf_mean:.2f}')
         
         # A problem is that the registered_confs_mean of the initial window is generated by I2P model,
         # while the registered_confs_mean of the frames within the initial window is generated by L2W model,
         # so there exists a gap. Here we try to align it.
         max_initial_conf_mean = -1
         for i in range(init_num):
-            if registered_confs_mean[i*keyframe_freq] > max_initial_conf_mean:
-                max_initial_conf_mean = registered_confs_mean[i*keyframe_freq]
+            if registered_confs_mean[i*keyframe_stride] > max_initial_conf_mean:
+                max_initial_conf_mean = registered_confs_mean[i*keyframe_stride]
         factor = max_conf_mean/max_initial_conf_mean
         # print(f'align register confidence with a factor {factor}')
         for i in range(init_num):
-            registered_confs[i*keyframe_freq] = registered_confs[i*keyframe_freq]*factor
-            registered_confs_mean[i*keyframe_freq] = registered_confs[i*keyframe_freq].mean().cpu()
+            registered_confs[i*keyframe_stride] = registered_confs[i*keyframe_stride]*factor
+            registered_confs_mean[i*keyframe_stride] = registered_confs[i*keyframe_stride].mean().cpu()
 
     # register the rest frames with L2W model
-    next_register_id = (init_num-1)*keyframe_freq+1 # the next frame to be registered
-    milestone = (init_num-1)*keyframe_freq # All frames before milestone have undergone the selection process for entry into the buffering set.
-    num_register = max(1,min(keyframe_freq//2, args.max_num_register))   # how many frames to register in each round
-    update_buffer_freq = keyframe_freq*args.update_buffer_freq   # update the buffering set every update_buffer_freq frames
+    next_register_id = (init_num-1)*keyframe_stride+1 # the next frame to be registered
+    milestone = (init_num-1)*keyframe_stride+1 # All frames before milestone have undergone the selection process for entry into the buffering set.
+    num_register = max(1,min((keyframe_stride+1)//2, args.max_num_register))   # how many frames to register in each round
+    update_buffer_intv = keyframe_stride*args.update_buffer_intv   # update the buffering set every update_buffer_intv frames
+    max_buffer_size = args.buffer_size
+    strategy = args.buffer_strategy
+    candi_frame_id = len(buffering_set_ids) # used for the reservoir sampling strategy
     
     pbar = tqdm(total=num_views, desc="registering")
     pbar.update(next_register_id-1)
@@ -543,18 +557,25 @@ def scene_recon_pipeline(i2p_model:Image2PointsModel,
         pbar.update(succ_num) 
         
         # update the buffering set
-        if next_register_id - milestone >= update_buffer_freq:  
-            while(next_register_id - milestone >= keyframe_freq):
+        if next_register_id - milestone >= update_buffer_intv:  
+            while(next_register_id - milestone >= keyframe_stride):
+                candi_frame_id += 1
+                full_flag = max_buffer_size > 0 and len(buffering_set_ids) >= max_buffer_size
+                insert_flag = (not full_flag) or ((strategy == 'fifo') or 
+                                                  (strategy == 'reservoir' and np.random.rand() < max_buffer_size/candi_frame_id))
+                if not insert_flag: 
+                    milestone += keyframe_stride
+                    continue
                 # Use offest to ensure the selected view is not too close to the last selected view
                 # If the last selected view is 0, 
-                # the next selected view should be at least keyframe_freq*3//4 frames away
-                start_ids_offset = max(0, buffering_set_ids[-1]+keyframe_freq*3//4 - milestone)
+                # the next selected view should be at least keyframe_stride*3//4 frames away
+                start_ids_offset = max(0, buffering_set_ids[-1]+keyframe_stride*3//4 - milestone)
                     
                 # get the mean confidence of the candidate views
                 mean_cand_recon_confs = torch.stack([registered_confs_mean[i]
-                                         for i in range(milestone+start_ids_offset, milestone+keyframe_freq)])
+                                         for i in range(milestone+start_ids_offset, milestone+keyframe_stride)])
                 mean_cand_local_confs = torch.stack([local_confs_mean[i]
-                                         for i in range(milestone+start_ids_offset, milestone+keyframe_freq)])
+                                         for i in range(milestone+start_ids_offset, milestone+keyframe_stride)])
                 # normalize the confidence to [0,1], to avoid overconfidence
                 mean_cand_recon_confs = (mean_cand_recon_confs - 1)/mean_cand_recon_confs # transform to sigmoid
                 mean_cand_local_confs = (mean_cand_local_confs - 1)/mean_cand_local_confs
@@ -565,9 +586,15 @@ def scene_recon_pipeline(i2p_model:Image2PointsModel,
                 most_conf_id += start_ids_offset
                 id_to_buffer = milestone + most_conf_id
                 buffering_set_ids.append(id_to_buffer)
-                # print(f"add ref view {id_to_buffer}")
-                milestone += keyframe_freq
-        
+                # print(f"add ref view {id_to_buffer}")                
+                # since we have inserted a new frame, overflow must happen when full_flag is True
+                if full_flag:
+                    if strategy == 'reservoir':
+                        buffering_set_ids.pop(np.random.randint(max_buffer_size))
+                    elif strategy == 'fifo':
+                        buffering_set_ids.pop(0)
+                # print(next_register_id, buffering_set_ids)
+                milestone += keyframe_stride
         # transfer the data to cpu if it is not in the buffering set, to save gpu memory
         for i in range(next_register_id):
             if i not in buffering_set_ids:
