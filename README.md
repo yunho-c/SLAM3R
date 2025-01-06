@@ -24,11 +24,10 @@ TL;DR: A real-time RGB SLAM system that performs dense 3D reconstruction via poi
   <div align="center"></div>
 </p>
 
-<p align="center">
-  <a href="">
-    <img src="./media/wild.png" alt="Teaser" width="100%">
-  </a>
-</p>
+<div align="center">
+  <img src="./media/replica.gif" width="49%" /> 
+  <img src="./media/wild.gif" width="49%" />
+</div>
 
 <p align="center">
 <strong>SLAM3R</strong> is a real-time dense scene reconstruction system that regresses 3D points from video frames using feed-forward neural networks, without explicitly estimating camera parameters. 
@@ -69,7 +68,18 @@ python setup.py build_ext --inplace
 cd ../../../
 ```
 
-4. Download the SLAM3R checkpoints for the [Image-to-Points model](https://drive.google.com/file/d/1DhBxEmUlo9a6brf5_Z21EWzpX3iKhVce/view?usp=drive_link) and the [Local-to-World model](https://drive.google.com/file/d/1LkPZBNz8WlMwxdGvvb1ZS4rKrWO-_aqQ/view?usp=drive_link), and place them under `./checkpoints/`
+4. Download the SLAM3R checkpoints for the Image-to-Points and Local-to-World models from Hugging Face 
+
+```bash
+from huggingface_hub import hf_hub_download
+filepath = hf_hub_download(repo_id='siyan824/slam3r_i2p', filename='slam3r_i2p.pth', local_dir='./checkpoints')
+filepath = hf_hub_download(repo_id='siyan824/slam3r_l2w', filename='slam3r_l2w.pth', local_dir='./checkpoints')
+```
+
+or Google Drive: 
+[Image-to-Points model](https://drive.google.com/file/d/1DhBxEmUlo9a6brf5_Z21EWzpX3iKhVce/view?usp=drive_link) and
+[Local-to-World model](https://drive.google.com/file/d/1LkPZBNz8WlMwxdGvvb1ZS4rKrWO-_aqQ/view?usp=drive_link).
+Place them under `./checkpoints/`
 
 
 ## Demo
