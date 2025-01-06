@@ -167,6 +167,11 @@ def load_model(model_name, weights, device='cuda'):
     model = eval(model_name)
     model.to(device)
     print('Loading pretrained: ', weights)
+    if not os.path.exists(weights):
+        from huggingface_hub import hf_hub_download
+        print('Downloading checkpoint from HF...')
+        hf_hub_download(repo_id='siyan824/slam3r_i2p', filename='slam3r_i2p.pth', local_dir='./checkpoints')
+        hf_hub_download(repo_id='siyan824/slam3r_l2w', filename='slam3r_l2w.pth', local_dir='./checkpoints')
     ckpt = torch.load(weights, map_location=device)
     print(model.load_state_dict(ckpt['model'], strict=False))
     del ckpt  # in case it occupies memory
