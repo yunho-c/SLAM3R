@@ -66,4 +66,5 @@ python recon.py \
 --max_num_register $MAX_NUM_REGISTER \
 --keyframe_adapt_min $KEYFRAME_ADAPT_MIN \
 --keyframe_adapt_max $KEYFRAME_ADAPT_MAX \
---keyframe_adapt_stride $KEYFRAME_ADAPT_STRIDE
+--keyframe_adapt_stride $KEYFRAME_ADAPT_STRIDE \
+--save_preds

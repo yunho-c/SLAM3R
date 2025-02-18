@@ -19,9 +19,6 @@ def get_data_loader(dataset, batch_size, num_workers=8, shuffle=True, drop_last=
     if isinstance(dataset, str):
         dataset = eval(dataset)
 
-    # dataset.set_epoch(0)
-    # print(dataset.__getitem__((0,0)))
-
     world_size = get_world_size()
     rank = get_rank()
 
@@ -51,11 +48,12 @@ def get_data_loader(dataset, batch_size, num_workers=8, shuffle=True, drop_last=
     return data_loader
 
 class MultiDataLoader:
-    def __init__(self, dataloaders:list):
+    def __init__(self, dataloaders:list, return_id=False):
         self.dataloaders = dataloaders
         self.len_dataloaders = [len(loader) for loader in dataloaders]
         self.total_length = sum(self.len_dataloaders)
         self.epoch = None
+        self.return_id = return_id  
     
     def __len__(self):
         return self.total_length 
@@ -91,6 +89,8 @@ class MultiDataLoader:
             except StopIteration: # this won't happen in distribute mode if drop_last is False
                 iters[idx] = iter(self.dataloaders[idx])
                 batch = next(iters[idx])
+            if self.return_id:
+                batch = (batch, idx)
             yield batch    
             batch_count += 1
             if batch_count == self.total_length: 
@@ -98,7 +98,7 @@ class MultiDataLoader:
                 break
             
 
-def get_multi_data_loader(dataset, batch_size, num_workers=8, shuffle=True, drop_last=True, pin_mem=True):
+def get_multi_data_loader(dataset, batch_size, return_id=False, num_workers=8, shuffle=True, drop_last=True, pin_mem=True):
     import torch
     from slam3r.utils.croco_misc import get_world_size, get_rank
 
@@ -141,5 +141,5 @@ def get_multi_data_loader(dataset, batch_size, num_workers=8, shuffle=True, drop
         )
         dataloaders.append(data_loader)
 
-    multi_dataloader = MultiDataLoader(dataloaders)
+    multi_dataloader = MultiDataLoader(dataloaders, return_id=return_id)
     return multi_dataloader

@@ -22,7 +22,7 @@ from slam3r.utils.image import imread_cv2
 
 class ScanNetpp_Seq_Full2(BaseStereoViewDataset):
     def __init__(self,  
-                 ROOT='data/scannetpp_seq_full', 
+                 ROOT='/data/yuzheng/data/scannetpp/train_val_scannetpp', 
                  num_views=2, 
                  scene_name=None,
                  sample_freq=1,

@@ -100,7 +100,7 @@ class MultiviewDecoderBlock_max(nn.Module):
         qs_compact = qs_corresp.reshape(Vx*M*B, Nx, num_heads, C//num_heads)
         
         # calculate attention results for all target views in one go 
-        if XFORMERS_AVALIABLE:
+        if XFORMERS_AVALIABLE and xs.device == 'cuda':
             drop_prob = cross_attn.attn_drop.p if self.training else 0
             attn_outputs = xops.memory_efficient_attention(qs_compact, ks_compact, vs_compact, 
                                                            scale=self.cross_attn.scale, p=drop_prob) # (V*M*B, N, H, K)

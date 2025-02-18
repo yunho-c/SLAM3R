@@ -33,7 +33,7 @@ class Seq_Data():
         # such as frame-0031.color.png, output_414.jpg, ...
         self.imgs = load_images(img_dir, size=img_size, 
                                 verbose=not silent, img_freq=sample_freq,
-                                postfix=postfix, start_idx=start_idx)
+                                postfix=postfix, start_idx=start_idx, img_num=num_views)
         
         self.num_views = num_views if num_views > 0 else len(self.imgs)
         self.stride = start_freq
@@ -44,9 +44,10 @@ class Seq_Data():
         self.make_groups()
         self.length = len(self.groups)
         
-        if img_dir[-1] == '/':
-            img_dir = img_dir[:-1]
-        self.scene_names = ['_'.join(img_dir.split('/')[-2:])]
+        if isinstance(img_dir, str):
+            if img_dir[-1] == '/':
+                img_dir = img_dir[:-1]
+            self.scene_names = ['_'.join(img_dir.split('/')[-2:])]
         
     def make_groups(self):
         self.groups = []

@@ -17,7 +17,7 @@ from functools import partial
 from .pos_embed import get_2d_sincos_pos_embed, RoPE2D 
 from .patch_embed import get_patch_embed
 
-from .blocks import Block, Mlp, DecoderBlock, MultiviewDecoderBlock_max
+from .blocks import Block, Mlp, MultiviewDecoderBlock_max
 
 from .heads import head_factory
 from .heads.postprocess import reg_dense_conf
@@ -213,25 +213,28 @@ class Multiview3D(nn.Module):
         for key, value in dust3r_ckpt.items():
             if key.startswith('dec_blocks2'):
                 slam3r_ckpt[key.replace('dec_blocks2', 'mv_dec_blocks2')] = value
-                if('cross_attn' in key):
-                    slam3r_ckpt[key.replace('dec_blocks2', 'mv_dec_blocks2').replace('cross_attn','mv_cross_attn')] = value
                 del slam3r_ckpt[key]
             elif key.startswith('dec_blocks'):
                 slam3r_ckpt[key.replace('dec_blocks', 'mv_dec_blocks1')] = value
-                if('cross_attn' in key):
-                    slam3r_ckpt[key.replace('dec_blocks', 'mv_dec_blocks1').replace('cross_attn','mv_cross_attn')] = value
                 del slam3r_ckpt[key]    
         
         # now load the converted ckpt in slam3r format
         return super().load_state_dict(slam3r_ckpt, **kw)
 
     def set_freeze(self, freeze):  # this is for use by downstream models
-        self.freeze = freeze
-        to_be_frozen = {
-            'none':     [],
-            'encoder':  [self.patch_embed, self.enc_blocks] if self.need_encoder else [],
-        }
-        freeze_all_params(to_be_frozen[freeze])
+        if freeze == 'none':
+            return
+        if self.need_encoder and freeze == 'encoder':
+            freeze_all_params([self.patch_embed, self.enc_blocks])
+        elif freeze == 'corr_score_head_only':
+            for param in self.parameters():
+                param.requires_grad = False
+            for param in self.corr_score_proj.parameters():
+                param.requires_grad = True
+            for param in self.corr_score_norm.parameters():
+                param.requires_grad = True
+        else:
+            raise NotImplementedError(f"freeze={freeze} not implemented")
 
     def _encode_image(self, image, true_shape, normalize=True):
         # embed the image into patches  (x has size B x Npatches x C)

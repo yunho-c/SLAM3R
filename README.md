@@ -57,12 +57,15 @@ conda activate slam3r
 # install torch according to your cuda version
 pip install torch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0 --index-url https://download.pytorch.org/whl/cu118
 pip install -r requirements.txt
-# optional: install XFormers according to your pytorch version, see https://github.com/facebookresearch/xformers
-pip install xformers==0.0.28.post2
+# optional: install additional packages to support visualization
+pip install -r requirements_vis.txt
 ```
 
-3. Optional: Compile cuda kernels for RoPE
+3. Optional: Accelerate SLAM3R with XFormers and custom cuda kernels for RoPE
 ```bash
+# install XFormers according to your pytorch version, see https://github.com/facebookresearch/xformers
+pip install xformers==0.0.28.post2
+# compile cuda kernels for RoPE
 cd slam3r/pos_embed/curope/
 python setup.py build_ext --inplace
 cd ../../../
@@ -101,8 +104,27 @@ Set the required parameter in this [script](./scripts/demo_wild.sh), and then ru
  bash scripts/demo_wild.sh
  ```
 
+When `--save_preds` is set in the script, the per-frame prediction for reconstruction will be saved at `visualization/TEST_NAME/preds/`. Then you can visualize the incremental reconstruction process with the following command
+
+ ```bash
+ bash scripts/demo_vis_wild.sh
+ ```
+
+A Open3D window will appear after running the script. Please click `space key` to record the adjusted rendering view and close the window. The code will then do the rendering of the incremental reconstruction.
+
 You can run SLAM3R on your self-captured video with the steps above. Here are [some tips](./docs/recon_tips.md) for it
 
+
+## Gradio interface
+We also provided a Gradio interface, where you can upload a directory, a video or specific images to perform the reconstruction. After setting the reconstruction parameters, you can click the 'Run' button to start the process. Modifying the visualization parameters at the bottom allows you to directly display different visualization results without rerunning the inference.
+
+The interface can be launched with the following command:
+
+ ```bash
+ python app.py
+ ```
+
+<img src="media/gradio.png" style="zoom: 33%;" />
 
 ## Citation
 

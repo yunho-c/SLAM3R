@@ -82,18 +82,6 @@ def load_images(folder_or_list, size, square_ok=False,
             img_names = [name for name in img_names if name.endswith(postfix)]
         root, folder_content = folder_or_list, img_names
         
-        # sort images by number in name
-        len_postfix = len(postfix) if postfix is not None else 0
-        img_numbers = []
-        for name in folder_content:
-            dot_index = len(name) - len_postfix
-            for i in range(0, dot_index):
-                if name[i].isdigit():
-                    number_start = i
-                    break
-            img_numbers.append(float(name[number_start:dot_index]))
-        folder_content = [x for _, x in sorted(zip(img_numbers, folder_content))]
-
     elif isinstance(folder_or_list, list):
         if verbose > 0:
             print(f'>> Loading a list of {len(folder_or_list)} images')
@@ -102,6 +90,21 @@ def load_images(folder_or_list, size, square_ok=False,
     else:
         raise ValueError(f'bad {folder_or_list=} ({type(folder_or_list)})')
    
+    # sort images by number in name
+    len_postfix = len(postfix) if postfix is not None \
+        else len(folder_content[0]) - folder_content[0].rfind('.')
+
+    img_numbers = []
+    for name in folder_content:
+        dot_index = len(name) - len_postfix
+        number_start = 0
+        for i in range(dot_index-1, 0, -1):
+            if not name[i].isdigit():
+                number_start = i + 1
+                break
+        img_numbers.append(float(name[number_start:dot_index]))
+    folder_content = [x for _, x in sorted(zip(img_numbers, folder_content))]
+
     if start_idx > 0:
         folder_content = folder_content[start_idx:]
     if(img_freq > 0):
@@ -109,6 +112,8 @@ def load_images(folder_or_list, size, square_ok=False,
     if(img_num > 0):
         folder_content = folder_content[:img_num]
         
+    # print(root, folder_content)
+
     supported_images_extensions = ['.jpg', '.jpeg', '.png']
     if heif_support_enabled:
         supported_images_extensions += ['.heic', '.heif']
