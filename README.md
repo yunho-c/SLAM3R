@@ -8,7 +8,7 @@ TL;DR: A real-time RGB SLAM system that performs dense 3D reconstruction via poi
 <p align="center">
   <h2 align="center">SLAM3R: Real-Time Dense Scene Reconstruction from Monocular RGB Videos</h2>
  <p align="center">
-    <a href="https://github.com/Ly-kc">Yuzheng Liu*</a>
+    <a href="https://ly-kc.github.io/">Yuzheng Liu*</a>
     ·
     <a href="https://siyandong.github.io/">Siyan Dong*</a>
     ·
@@ -38,7 +38,7 @@ TL;DR: A real-time RGB SLAM system that performs dense 3D reconstruction via poi
 ## TODO List
 
 - [x] Release pre-trained weights and inference code.
-- [ ] Release Gradio Demo.
+- [x] Release Gradio Demo.
 - [ ] Release evaluation code. 
 - [ ] Release training code and data.
 
@@ -124,7 +124,7 @@ The interface can be launched with the following command:
  python app.py
  ```
 
-<img src="media/gradio.png" style="zoom: 33%;" />
+<img src="media/gradio_office.jpg" style="zoom: 33%;" />
 
 ## Citation
 
