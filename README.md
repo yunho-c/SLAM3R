@@ -6,7 +6,7 @@ TL;DR: A real-time RGB SLAM system that performs dense 3D reconstruction via poi
 
 
 <p align="center">
-  <h2 align="center">SLAM3R: Real-Time Dense Scene Reconstruction from Monocular RGB Videos</h2>
+  <h2 align="center">[CVPR 2025] SLAM3R: Real-Time Dense Scene Reconstruction from Monocular RGB Videos</h2>
  <p align="center">
     <a href="https://ly-kc.github.io/">Yuzheng Liu*</a>
     ·
@@ -116,7 +116,7 @@ You can run SLAM3R on your self-captured video with the steps above. Here are [s
 
 
 ## Gradio interface
-We also provided a Gradio interface, where you can upload a directory, a video or specific images to perform the reconstruction. After setting the reconstruction parameters, you can click the 'Run' button to start the process. Modifying the visualization parameters at the bottom allows you to directly display different visualization results without rerunning the inference.
+We also provide a Gradio interface, where you can upload a directory, a video or specific images to perform the reconstruction. After setting the reconstruction parameters, you can click the 'Run' button to start the process. Modifying the visualization parameters at the bottom allows you to directly display different visualization results without rerunning the inference.
 
 The interface can be launched with the following command:
 

@@ -204,6 +204,7 @@ def find_render_cam(pcd, poses_all=None, cam_width=0.016, cam_height=0.012, cam_
     opt.point_size = 1
     opt.background_color = np.array([0, 0, 0])
 
+    print_camera_pose(vis)
     print("Press the space key to record the current rendering view.")
     vis.register_key_callback(32, print_camera_pose)  
 

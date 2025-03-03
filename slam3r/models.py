@@ -28,6 +28,7 @@ from .utils.misc import freeze_all_params, transpose_to_landscape
 inf = float('inf')
 
 
+#TODO: from Huggingdface pretrained
 def load_model(model_path, device, verbose=True):
     if verbose:
         print('... loading model from', model_path)

@@ -146,6 +146,10 @@ def load_model(model_name, weights, device='cuda'):
         print('Downloading checkpoint from HF...')
         hf_hub_download(repo_id='siyan824/slam3r_i2p', filename='slam3r_i2p.pth', local_dir='./checkpoints')
         hf_hub_download(repo_id='siyan824/slam3r_l2w', filename='slam3r_l2w.pth', local_dir='./checkpoints')
+        if "i2p" in weights:
+            weights = join('./checkpoints', 'slam3r_i2p.pth')
+        elif "l2w" in weights:
+            weights = join('./checkpoints', 'slam3r_l2w.pth')
     ckpt = torch.load(weights, map_location=device)
     print(model.load_state_dict(ckpt['model'], strict=False))
     del ckpt  # in case it occupies memory

@@ -13,6 +13,7 @@ except ImportError:
 class XFormer_Attention(nn.Module):
     """Warpper for self-attention module with xformers.
     Calculate attention scores with xformers memory_efficient_attention.
+    When inference is performed on the CPU or when xformer is not installed, it will degrade to the normal attention.
     """
     def __init__(self, old_module:Attention):
         super().__init__()
@@ -23,6 +24,7 @@ class XFormer_Attention(nn.Module):
         self.proj = old_module.proj
         self.proj_drop = old_module.proj_drop
         self.rope = old_module.rope
+        self.attn_drop = old_module.attn_drop
 
     def forward(self, x, xpos):
         B, N, C = x.shape
@@ -33,13 +35,19 @@ class XFormer_Attention(nn.Module):
         if self.rope is not None:
             q = self.rope(q, xpos) # (B, H, N, K)
             k = self.rope(k, xpos)
-               
-        q = q.permute(0, 2, 1, 3)  # (B, N, H, K)
-        k = k.permute(0, 2, 1, 3)
-        v = v.permute(0, 2, 1, 3)
-        drop_prob = self.attn_drop_prob if self.training else 0
-        x = xops.memory_efficient_attention(q, k, v, scale=self.scale, p=drop_prob) # (B, N, H, K)
-
+            
+        if x.is_cuda and XFORMERS_AVALIABLE:
+            q = q.permute(0, 2, 1, 3)  # (B, N, H, K)
+            k = k.permute(0, 2, 1, 3)
+            v = v.permute(0, 2, 1, 3)
+            drop_prob = self.attn_drop_prob if self.training else 0
+            x = xops.memory_efficient_attention(q, k, v, scale=self.scale, p=drop_prob) # (B, N, H, K)
+        else:   
+            attn = (q @ k.transpose(-2, -1)) * self.scale
+            attn = attn.softmax(dim=-1)
+            attn = self.attn_drop(attn)
+            x = (attn @ v).transpose(1, 2)
+            
         x=x.reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
@@ -100,7 +108,7 @@ class MultiviewDecoderBlock_max(nn.Module):
         qs_compact = qs_corresp.reshape(Vx*M*B, Nx, num_heads, C//num_heads)
         
         # calculate attention results for all target views in one go 
-        if XFORMERS_AVALIABLE and xs.device == 'cuda':
+        if xs.is_cuda and XFORMERS_AVALIABLE:
             drop_prob = cross_attn.attn_drop.p if self.training else 0
             attn_outputs = xops.memory_efficient_attention(qs_compact, ks_compact, vs_compact, 
                                                            scale=self.cross_attn.scale, p=drop_prob) # (V*M*B, N, H, K)
