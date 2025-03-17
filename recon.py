@@ -17,16 +17,14 @@ from slam3r.utils.recon_utils import *
 
 parser = argparse.ArgumentParser(description="Inference on a wild captured scene")
 parser.add_argument("--device", type=str, default='cuda', help="pytorch device")
-parser.add_argument("--l2w_model", type=str, required=True, help="model class")
-parser.add_argument("--l2w_weights", type=str, help="path to the model weights", required=True)
-parser.add_argument('--i2p_model', type=str, help='the path of the assist model')
-parser.add_argument('--i2p_weights', type=str, help='path of checkpoint for the assist model')
-parser.add_argument("--dataset", type=str, required=True)
-parser.add_argument("--save_dir", type=str, default="visualization", help="directory to save the results")
+input_group = parser.add_mutually_exclusive_group(required=True)
+input_group.add_argument("--dataset", type=str, help="a string indicating the dataset")
+input_group.add_argument("--img_dir", type=str, help="directory of the input images")
+parser.add_argument("--save_dir", type=str, default="results", help="directory to save the results")
 parser.add_argument("--test_name", type=str, required=True, help="name of the test")
 parser.add_argument('--save_all_views', action='store_true', help='whether to save all views respectively')
 
-# agrs for the whole scene reconstruction
+# args for the whole scene reconstruction
 parser.add_argument("--keyframe_stride", type=int, default=-1, 
                     help="the stride of sampling keyframes, -1 for auto adaptation")
 parser.add_argument("--initial_winsize", type=int, default=5, 
@@ -64,7 +62,8 @@ parser.add_argument("--keyframe_adapt_stride", type=int, default=1,
 
 parser.add_argument("--seed", type=int, default=42, help="seed for python random")
 parser.add_argument('--gpu_id', type=int, default=-1, help='gpu id, -1 for auto select')
-parser.add_argument('--save_preds', action='store_true', help='whether to save per-frame preds')    
+parser.add_argument('--save_preds', action='store_true', help='whether to save all per-frame preds')    
+parser.add_argument('--save_for_eval', action='store_true', help='whether to save partial per-frame preds for evaluation')   
 
 
 def save_recon(views, pred_frame_num, save_dir, scene_id, save_all_views=False, 
@@ -134,26 +133,6 @@ def get_img_tokens(views, model):
                                                                normalize=False,
                                                                silent=False)
     return res_shapes, res_feats, res_poses
-
-
-def load_model(model_name, weights, device='cuda'):
-    print('Loading model: {:s}'.format(model_name))
-    model = eval(model_name)
-    model.to(device)
-    print('Loading pretrained: ', weights)
-    if not os.path.exists(weights):
-        from huggingface_hub import hf_hub_download
-        print('Downloading checkpoint from HF...')
-        hf_hub_download(repo_id='siyan824/slam3r_i2p', filename='slam3r_i2p.pth', local_dir='./checkpoints')
-        hf_hub_download(repo_id='siyan824/slam3r_l2w', filename='slam3r_l2w.pth', local_dir='./checkpoints')
-        if "i2p" in weights:
-            weights = join('./checkpoints', 'slam3r_i2p.pth')
-        elif "l2w" in weights:
-            weights = join('./checkpoints', 'slam3r_l2w.pth')
-    ckpt = torch.load(weights, map_location=device)
-    print(model.load_state_dict(ckpt['model'], strict=False))
-    del ckpt  # in case it occupies memory
-    return model
 
 
 def scene_frame_retrieve(candi_views:list, src_views:list, i2p_model, 
@@ -329,7 +308,7 @@ def adapt_keyframe_stride(views:list, model:Image2PointsModel, win_r = 3,
 def scene_recon_pipeline(i2p_model:Image2PointsModel, 
                          l2w_model:Local2WorldModel, 
                          dataset, args, 
-                         save_dir="visualization"):
+                         save_dir="results"):
 
     win_r = args.win_r
     num_scene_frame = args.num_scene_frame
@@ -633,6 +612,12 @@ def scene_recon_pipeline(i2p_model:Image2PointsModel,
         with open(join(preds_dir, 'metadata.json'), 'w') as f:
             json.dump(metadata, f)
 
+    elif args.save_for_eval:
+        preds_dir = join(save_dir, 'preds')
+        os.makedirs(preds_dir, exist_ok=True)
+        print(f">> saving per-frame predictions to {preds_dir}")
+        np.save(join(preds_dir, 'registered_pcds.npy'), torch.cat(per_frame_res['l2w_pcds']).cpu().numpy())
+        np.save(join(preds_dir, 'registered_confs.npy'), torch.stack([conf.cpu() for conf in per_frame_res['l2w_confs']]).numpy())
 
 if __name__ == "__main__":
 
@@ -646,13 +631,18 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     #----------Load model and ckpt-----------
-    i2p_model = load_model(args.i2p_model, args.i2p_weights, args.device)
-    l2w_model = load_model(args.l2w_model, args.l2w_weights, args.device)
+    i2p_model = Image2PointsModel.from_pretrained('siyan824/slam3r_i2p')
+    l2w_model = Local2WorldModel.from_pretrained('siyan824/slam3r_l2w')
+    i2p_model.to(args.device)
+    l2w_model.to(args.device)
     i2p_model.eval()
     l2w_model.eval()
 
-    print('Loading dataset: ', args.dataset)
-    dataset = eval(args.dataset)
+    if args.dataset:
+        print('Loading dataset: ', args.dataset)
+        dataset = eval(args.dataset)
+    elif args.img_dir:
+        dataset = Seq_Data(img_dir=args.img_dir, img_size=224, to_tensor=True)
     if hasattr(dataset,"set_epoch"):
         dataset.set_epoch(0)
 

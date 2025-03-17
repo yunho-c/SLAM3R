@@ -7,7 +7,7 @@ import tempfile
 import functools
 import subprocess
 
-from recon import load_model, get_img_tokens, initialize_scene, adapt_keyframe_stride, i2p_inference_batch, l2w_inference, normalize_views, scene_frame_retrieve
+from recon import get_img_tokens, initialize_scene, adapt_keyframe_stride, i2p_inference_batch, l2w_inference, normalize_views, scene_frame_retrieve
 from slam3r.datasets.wild_seq import Seq_Data
 from slam3r.models import Local2WorldModel, Image2PointsModel
 from slam3r.utils.device import to_numpy
@@ -23,8 +23,6 @@ def get_args_parser():
     parser.add_argument("--server_port", type=int, help=("will start gradio app on this port (if available). "
                                                          "If None, will search for an available port starting at 7860."),
                         default=None)
-    parser.add_argument("--l2w_weights", default="./checkpoints/slam3r_l2w.pth", type=str, help="path to the model weights")
-    parser.add_argument('--i2p_weights', default="./checkpoints/slam3r_i2p.pth", type=str, help='path of checkpoint for the assist model')
     parser.add_argument("--device", type=str, default='cuda', help="pytorch device")
     parser.add_argument("--tmp_dir", type=str, default="./tmp", help="value for tempfile.tempdir")
 
@@ -581,15 +579,10 @@ if __name__ == '__main__':
     else:
         server_name = '0.0.0.0' if args.local_network else '127.0.0.1'
     
-    i2p_model_str = "Image2PointsModel(pos_embed='RoPE100', img_size=(224, 224), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), \
-enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12, \
-mv_dec1='MultiviewDecoderBlock_max',mv_dec2='MultiviewDecoderBlock_max', enc_minibatch = 11)"
-    l2w_model_str = "Local2WorldModel(pos_embed='RoPE100', img_size=(224, 224), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), \
-enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12, \
-mv_dec1='MultiviewDecoderBlock_max',mv_dec2='MultiviewDecoderBlock_max', enc_minibatch = 11, need_encoder=False)"
-    
-    i2p_model = load_model(i2p_model_str, args.i2p_weights, device=args.device)
-    l2w_model = load_model(l2w_model_str, args.l2w_weights, device=args.device)
+    i2p_model = Image2PointsModel.from_pretrained('siyan824/slam3r_i2p')
+    l2w_model = Local2WorldModel.from_pretrained('siyan824/slam3r_l2w')
+    i2p_model.to(args.device)
+    l2w_model.to(args.device)
     i2p_model.eval()
     l2w_model.eval()
 

@@ -25,30 +25,12 @@ from .heads.postprocess import reg_dense_conf
 from .utils.device import MyNvtxRange
 from .utils.misc import freeze_all_params, transpose_to_landscape
 
+from huggingface_hub import PyTorchModelHubMixin
+
 inf = float('inf')
 
-
-#TODO: from Huggingdface pretrained
-def load_model(model_path, device, verbose=True):
-    if verbose:
-        print('... loading model from', model_path)
-    ckpt = torch.load(model_path, map_location='cpu')
-    args = ckpt['args'].model.replace("ManyAR_PatchEmbed", "PatchEmbedDust3R")
-    if 'landscape_only' not in args:
-        args = args[:-1] + ', landscape_only=False)'
-    else:
-        args = args.replace(" ", "").replace('landscape_only=True', 'landscape_only=False')
-    assert "landscape_only=False" in args
-    if verbose:
-        print(f"instantiating : {args}")
-    net = eval(args)
-    s = net.load_state_dict(ckpt['model'], strict=False)
-    if verbose:
-        print(s)
-    return net.to(device)
        
-       
-class Multiview3D(nn.Module):
+class Multiview3D(nn.Module, PyTorchModelHubMixin):
     """Backbone of SLAM3R model, with the following components:
     - patch embeddings
     - positional embeddings
@@ -83,7 +65,8 @@ class Multiview3D(nn.Module):
                 ):    
 
         super().__init__()
-
+        if isinstance(img_size, int):
+            img_size = (img_size, img_size)
         # patch embeddings  (with initialization done as in MAE)
         self._set_patch_embed(patch_embed_cls, img_size, patch_size, enc_embed_dim)
         # positional embeddings in the encoder and decoder
@@ -177,14 +160,6 @@ class Multiview3D(nn.Module):
         # magic wrapper
         self.head1 = transpose_to_landscape(self.downstream_head1, activate=landscape_only)
         self.head2 = transpose_to_landscape(self.downstream_head2, activate=landscape_only)
-
-    #TODO: from Huggingdface pretrained
-    @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, **kw):
-        if os.path.isfile(pretrained_model_name_or_path):
-            return load_model(pretrained_model_name_or_path, device='cpu')
-        else:
-            raise ValueError(f"Cannot find {pretrained_model_name_or_path}")
 
     def load_state_dict(self, ckpt, ckpt_type="slam3r", **kw):
         if not self.need_encoder:

@@ -1,6 +1,5 @@
 # Copyright (C) 2024-present Naver Corporation. All rights reserved.
 # Licensed under CC BY-NC-SA 4.0 (non-commercial use only).
-#
 # --------------------------------------------------------
 # Dataloader for preprocessed Replica dataset provided by NICER-SLAM
 # --------------------------------------------------------
@@ -8,8 +7,6 @@ import os.path as osp
 import os
 import cv2
 import numpy as np
-import torch
-import itertools
 from glob import glob
 import json
 import trimesh
@@ -68,7 +65,7 @@ class Replica(BaseStereoViewDataset):
         self.trajectories = []  #c2w
         self.pairs = []
         with open(os.path.join(self.ROOT,"cam_params.json"),'r') as f:
-            self.intrinsic = json.load(f)['camera'] #scale为depth的
+            self.intrinsic = json.load(f)['camera'] 
         K = np.eye(3)
         K[0, 0] = self.intrinsic['fx']
         K[1, 1] = self.intrinsic['fy']
@@ -79,10 +76,10 @@ class Replica(BaseStereoViewDataset):
         for id, scene_name in enumerate(self.scene_names):
             scene_dir = os.path.join(self.ROOT, scene_name)
             image_paths = sorted(glob(os.path.join(scene_dir,"results","frame*.jpg")))
-            # print(image_paths)
+
             image_paths = image_paths[::self.sample_freq]
             image_num = len(image_paths)
-            #这两行能否提速
+
             if not self.cycle:
                 for i in range(0, image_num, self.start_freq):
                     last_id = i+self.sample_dis*(self.num_fetch_views-1)
@@ -95,7 +92,7 @@ class Replica(BaseStereoViewDataset):
                     for j in range(0, self.num_fetch_views):
                         pair.append((i+(j-self.ref_id)*self.sample_dis+image_num)%image_num + num_count)
                     self.pairs.append(pair)
-                    # print(pair)
+
             self.trajectories.append(np.loadtxt(os.path.join(scene_dir,"traj.txt")).reshape(-1,4,4)[::self.sample_freq])
             self.image_paths +=  image_paths
             self.sceneids += [id,] * image_num
@@ -106,7 +103,6 @@ class Replica(BaseStereoViewDataset):
         
     def __len__(self):
         return len(self.pairs)
-        # return len(self.img_group)
     
     def _get_views(self, idx, resolution, rng):
         
@@ -120,7 +116,6 @@ class Replica(BaseStereoViewDataset):
             image_path = self.image_paths[view_idx]
             image_name = os.path.basename(image_path)
             depth_path = image_path.replace(".jpg",".png").replace("frame","depth")
-            # print(image_path)
             # Load RGB image
             rgb_image = imread_cv2(image_path)
             
@@ -129,7 +124,6 @@ class Replica(BaseStereoViewDataset):
             depthmap = depthmap.astype(np.float32) 
             depthmap[~np.isfinite(depthmap)] = 0  # TODO:invalid
             depthmap /= self.intrinsic['scale']
-
 
             rgb_image, depthmap, intrinsics = self._crop_resize_if_necessary(
                 rgb_image, depthmap, self.intri_mat, resolution, rng=rng, info=view_idx)
@@ -140,52 +134,44 @@ class Replica(BaseStereoViewDataset):
                 camera_pose=camera_pose.astype(np.float32),
                 camera_intrinsics=intrinsics.astype(np.float32),
                 dataset='Replica',
-                label=self.scene_names[scene_id] + '_' + image_name.replace('.jpg',''),
+                label=self.scene_names[scene_id] + '_' + image_name,
                 instance=f'{str(idx)}_{str(view_idx)}',
             ))
         if self.print_mess:
             print(f"loading {[view['label'] for view in views]}")
         return views
-    
-    
-   
-
 
 
 if __name__ == "__main__":
-    from slam3r.datasets.base.base_stereo_view_dataset import view_name
-    from slam3r.viz import SceneViz, auto_cam_size
-    from slam3r.utils.image import rgb
-
-    num_views = 3
-    # dataset = Replica(scene_name="office1", resolution=(1200,680), num_views=num_views,
-                    #   sample_freq=200)
-    dataset= Replica(ref_id=1, print_mess=True, cycle=True, resolution=224, num_views=5, sample_freq=100, seed=777, start_freq=1, sample_dis=1)
+    num_views = 5
+    dataset= Replica(ref_id=1, print_mess=True, cycle=True, resolution=224, num_views=num_views, sample_freq=100, seed=777, start_freq=1, sample_dis=1)
     save_dir = "visualization/replica_views"
-    # for idx in np.random.permutation(len(dataset))[:10]:
-    # for idx in range(len(dataset))[:3]:
-    for idx in range(len(dataset)):
+    
+    # combine the pointmaps from different views with c2ws
+    # to check the correctness of the dataloader
+    for idx in np.random.permutation(len(dataset))[:10]:
+    # for idx in range(10):
         views = dataset[(idx,0)]
-        # os.makedirs(osp.join(save_dir, str(idx)), exist_ok=True)
-        # assert len(views) == num_views
-        # all_pts = []
-        # all_color=[]
-        # for i, view in enumerate(views):
-        #     img = np.array(view['img']).transpose(1, 2, 0)
-        #     # save_path = osp.join(save_dir, str(idx), f"{'_'.join(view_name(view).split('/')[1:])}.jpg")
-        #     save_path = osp.join(save_dir, str(idx), f"{i}_{view['label']}")
-        #     # img=cv2.COLOR_RGB2BGR(img)
-        #     img=img[...,::-1]
-        #     img = (img+1)/2
-        #     cv2.imwrite(save_path, img*255)
-        #     print(f"save to {save_path}")
-        #     pts3d = np.array(view['pts3d']).reshape(-1,3)
-        #     pct = trimesh.PointCloud(pts3d, colors=img.reshape(-1, 3))
-        #     pct.export(save_path.replace('.jpg','.ply'))
-        #     all_pts.append(pts3d)
-        #     all_color.append(img.reshape(-1, 3))
-        # all_pts = np.concatenate(all_pts, axis=0)
-        # all_color = np.concatenate(all_color, axis=0)
-        # pct = trimesh.PointCloud(all_pts, all_color)
-        # pct.export(osp.join(save_dir, str(idx), f"all.ply"))
+        os.makedirs(osp.join(save_dir, str(idx)), exist_ok=True)
+        assert len(views) == num_views
+        all_pts = []
+        all_color = []
+        for i, view in enumerate(views):
+            img = np.array(view['img']).transpose(1, 2, 0)
+            save_path = osp.join(save_dir, str(idx), f"{i}_{view['label']}")
+            print(save_path)
+            img=img[...,::-1]
+            img = (img+1)/2
+            cv2.imwrite(save_path, img*255)
+            print(f"save to {save_path}")
+            img = img[...,::-1]
+            pts3d = np.array(view['pts3d']).reshape(-1,3)
+            pct = trimesh.PointCloud(pts3d, colors=img.reshape(-1, 3))
+            pct.export(save_path.replace('.jpg','.ply'))
+            all_pts.append(pts3d)
+            all_color.append(img.reshape(-1, 3))
+        all_pts = np.concatenate(all_pts, axis=0)
+        all_color = np.concatenate(all_color, axis=0)
+        pct = trimesh.PointCloud(all_pts, all_color)
+        pct.export(osp.join(save_dir, str(idx), f"all.ply"))
                     
