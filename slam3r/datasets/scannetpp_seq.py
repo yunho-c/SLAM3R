@@ -1,6 +1,5 @@
 # Copyright (C) 2024-present Naver Corporation. All rights reserved.
 # Licensed under CC BY-NC-SA 4.0 (non-commercial use only).
-#
 # --------------------------------------------------------
 # Dataloader for preprocessed scannet++
 # dataset at https://github.com/scannetpp/scannetpp - non-commercial research and educational purposes
@@ -20,18 +19,18 @@ from slam3r.datasets.base.base_stereo_view_dataset import BaseStereoViewDataset
 from slam3r.utils.image import imread_cv2    
 
 
-class ScanNetpp_Seq_Full2(BaseStereoViewDataset):
+class ScanNetpp_Seq(BaseStereoViewDataset):
     def __init__(self,  
-                 ROOT='/data/yuzheng/data/scannetpp/train_val_scannetpp', 
+                 ROOT='data/scannetpp_processed', 
                  num_views=2, 
-                 scene_name=None,
-                 sample_freq=1,
-                 start_freq=1,
+                 scene_name=None,   # specify scene name(s) to load
+                 sample_freq=1,  # stride of the frmaes inside the sliding window
+                 start_freq=1,  # start frequency for the sliding window
                  img_types=['iphone', 'dslr'],
-                 filter=False,
-                 rand_sel=False,
-                 winsize=0, 
-                 sel_num=0,
+                 filter=False,  # filter out the windows with abnormally large stride
+                 rand_sel=False,  # randomly select views from a window
+                 winsize=0,  # window size to randomly select views
+                 sel_num=0,  # number of combinations to randomly select from a window
                  *args,**kwargs):
         super().__init__(*args, **kwargs)
         self.ROOT = ROOT
@@ -50,16 +49,12 @@ class ScanNetpp_Seq_Full2(BaseStereoViewDataset):
         else:
             self.winsize = sample_freq*(num_views-1)
         
-        self.scene_names = os.listdir(self.ROOT)
-        if "56a0ec536c" in self.scene_names:
-            self.scene_names.remove("56a0ec536c")
-        if "fe1733741f" in self.scene_names:
-            self.scene_names.remove("fe1733741f")
-        
         if self.split == 'train':
-            self.scene_names = self.scene_names[:-30]
+            with open(os.path.join(ROOT, 'splits', 'nvs_sem_train.txt'), 'r') as f:
+                self.scene_names = f.read().splitlines()
         elif self.split=='test':
-            self.scene_names = self.scene_names[-30:]
+            with open(os.path.join(ROOT, 'splits', 'nvs_sem_val.txt'), 'r') as f:
+                self.scene_names = f.read().splitlines()
         if scene_name is not None:
             assert self.split is None
             if isinstance(scene_name, list): 
@@ -96,7 +91,10 @@ class ScanNetpp_Seq_Full2(BaseStereoViewDataset):
         for id, scene_name in enumerate(self.scene_names):
             scene_dir = os.path.join(self.ROOT, scene_name)
             for img_type in self.img_types:
-                metadata = np.load(os.path.join(scene_dir, f'scene_{img_type}_metadata.npz'))
+                metadata_path = os.path.join(scene_dir, f'scene_{img_type}_metadata.npz')
+                if not os.path.exists(metadata_path):
+                    continue
+                metadata = np.load(metadata_path)
                 image_names = metadata['images'].tolist()
                 assert image_names == sorted(image_names)
                 image_names = sorted(image_names)
@@ -131,10 +129,9 @@ class ScanNetpp_Seq_Full2(BaseStereoViewDataset):
         if self.rand_sel:
             sid, eid = self.win_bid[idx//self.sel_num]
             if idx % self.sel_num == 0:
-                #生成sid与eid之间的均匀采样
                 return np.linspace(sid, eid, self.num_views, endpoint=True, dtype=int)
                 
-            #首尾必须选择，中间随机选择n-2个
+            # random select the views, including the start and end view
             if self.num_views == 2:
                 return [sid, eid]
             sel_ids = rng.choice(range(sid+1, eid), self.num_views-2, replace=False)
@@ -176,22 +173,20 @@ class ScanNetpp_Seq_Full2(BaseStereoViewDataset):
                 label=self.scene_names[scene_id] + '_' + basename,
                 instance=f'{str(idx)}_{str(view_idx)}',
             ))
-        # print([view['label'] for view in views])
+
         return views  
 
 if __name__ == "__main__":
     from slam3r.datasets.base.base_stereo_view_dataset import view_name
-    from slam3r.viz import SceneViz, auto_cam_size
-    from slam3r.utils.image import rgb
     import trimesh
 
-    num_views = 4
-    # dataset = ScanNetpp_Seq_Full2(split='train', resolution=(224,224), 
-    #                              num_views=4,
-    #                              start_freq=1, sample_freq=2)
-    dataset = ScanNetpp_Seq_Full2(split='train', resolution=(224,224), 
+    num_views = 5
+    dataset = ScanNetpp_Seq(split='train', resolution=(224,224), 
                                  num_views=num_views,
-                                 start_freq=1, rand_sel=True, winsize=6, sel_num=3)
+                                 start_freq=1, sample_freq=3)
+    # dataset = ScanNetpp_Seq(split='train', resolution=(224,224), 
+    #                              num_views=num_views,
+    #                              start_freq=1, rand_sel=True, winsize=6, sel_num=3)
     save_dir = "visualization/scannetpp_seq_views"
     os.makedirs(save_dir, exist_ok=True)
 
@@ -204,13 +199,12 @@ if __name__ == "__main__":
         all_color=[]
         for i, view in enumerate(views):
             img = np.array(view['img']).transpose(1, 2, 0)
-            # save_path = osp.join(save_dir, str(idx), f"{'_'.join(view_name(view).split('/')[1:])}.jpg")
             save_path = osp.join(save_dir, str(idx), f"{i}_{view['label']}")
-            # img=cv2.COLOR_RGB2BGR(img)
             img=img[...,::-1]
             img = (img+1)/2
             cv2.imwrite(save_path, img*255)
             print(f"save to {save_path}")
+            img = img[...,::-1]
             pts3d = np.array(view['pts3d']).reshape(-1,3)
             pct = trimesh.PointCloud(pts3d, colors=img.reshape(-1, 3))
             pct.export(save_path.replace('.jpg','.ply'))
@@ -220,6 +214,3 @@ if __name__ == "__main__":
         all_color = np.concatenate(all_color, axis=0)
         pct = trimesh.PointCloud(all_pts, all_color)
         pct.export(osp.join(save_dir, str(idx), f"all.ply"))
-    # for idx in range(len(dataset)):
-    #     views = dataset[(idx,0)]
-    #     print([view['label'] for view in views])

@@ -10,7 +10,6 @@ import os.path as osp
 import json
 import itertools
 from collections import deque
-
 import cv2
 import numpy as np
 
@@ -34,8 +33,8 @@ class Co3d_Seq(BaseStereoViewDataset):
                  mask_bg=True, 
                  ROOT="data/co3d_processed", 
                  num_views=2,
-                 degree=90,
-                 sel_num=1,
+                 degree=90,  # degree range to select views
+                 sel_num=1,  # number of views to select inside a degree range
                  *args, 
                  **kwargs):
         self.ROOT = ROOT
@@ -61,9 +60,9 @@ class Co3d_Seq(BaseStereoViewDataset):
                 self.scenes[cate] = json.load(f)
         self.scenes = {(k, k2): v2 for k, v in self.scenes.items()
                         for k2, v2 in v.items()}
-        self.scene_list = list(self.scenes.keys())
+        self.scene_list = list(self.scenes.keys()) # for each scene, we have about 100 images ==> 360 degrees (so 25 frames ~= 90 degrees)
         self.scene_lens = [len(v) for k,v in self.scenes.items()]
-        print(np.unique(np.array(self.scene_lens), return_counts=True))
+        # print(np.unique(np.array(self.scene_lens)))
         self.invalidate = {scene: {} for scene in self.scene_list}
         
         print(self)
@@ -75,10 +74,10 @@ class Co3d_Seq(BaseStereoViewDataset):
         sid = max(0, idx // self.sel_num - 1) #from 0 to 99-winsize
         eid = sid + self.winsize
         if idx % self.sel_num == 0:
-            #生成sid与eid之间的均匀采样
+            # generate a uniform sample between sid and eid
             return np.linspace(sid, eid, self.num_views, endpoint=True, dtype=int)
             
-        #首尾必须选择，中间随机选择n-2个
+        # select the first and last, and randomly select the rest n-2 in between
         if self.num_views == 2:
             return [sid, eid]
         sel_ids = rng.choice(range(sid+1, eid), self.num_views-2, replace=False)
@@ -96,11 +95,9 @@ class Co3d_Seq(BaseStereoViewDataset):
 
         imgs_idxs = self.get_img_idxes(idx % self.sel_num_perseq, rng)
         
-        
         for i, idx in enumerate(imgs_idxs):
             if idx > last:
-                while idx > last:
-                    idx -= last
+                idx = idx % last
                 imgs_idxs[i] = idx 
         # print(imgs_idxs)
 
@@ -112,9 +109,10 @@ class Co3d_Seq(BaseStereoViewDataset):
 
         views = []
         imgs_idxs = deque(imgs_idxs)
+        
         while len(imgs_idxs) > 0:  # some images (few) have zero depth
             im_idx = imgs_idxs.popleft()
-
+        
             if self.invalidate[obj, instance][resolution][im_idx]:
                 # search for a valid image
                 random_direction = 2 * rng.choice(2) - 1
@@ -123,6 +121,9 @@ class Co3d_Seq(BaseStereoViewDataset):
                     if not self.invalidate[obj, instance][resolution][tentative_im_idx]:
                         im_idx = tentative_im_idx
                         break
+                if offset == len(image_pool) - 1:
+                    # no valid image found
+                    return self._get_views((idx+1)%len(self), resolution, rng)
 
             view_idx = image_pool[im_idx]
 
@@ -137,7 +138,6 @@ class Co3d_Seq(BaseStereoViewDataset):
             rgb_image = imread_cv2(impath)
             depthmap = imread_cv2(impath.replace('images', 'depths') + '.geometric.png', cv2.IMREAD_UNCHANGED)
             depthmap = (depthmap.astype(np.float32) / 65535) * np.nan_to_num(input_metadata['maximum_depth'])
-
             if mask_bg:
                 # load object mask
                 maskpath = osp.join(self.ROOT, obj, instance, 'masks', f'frame{view_idx:06n}.png')
@@ -146,10 +146,17 @@ class Co3d_Seq(BaseStereoViewDataset):
 
                 # update the depthmap with mask
                 depthmap *= maskmap
-
+                
             rgb_image, depthmap, intrinsics = self._crop_resize_if_necessary(
                 rgb_image, depthmap, intrinsics, resolution, rng=rng, info=impath)
 
+            # TODO: check if this is resonable
+            valid_depth = depthmap[depthmap > 0.0]
+            if valid_depth.size > 0:
+                median_depth = np.median(valid_depth)
+                # print(f"median depth: {median_depth}")
+                depthmap[depthmap > median_depth*3] = 0. # filter out floatig points 
+            
             num_valid = (depthmap > 0.0).sum()
             if num_valid == 0:
                 # problem, invalidate image and retry
@@ -174,13 +181,18 @@ if __name__ == "__main__":
     import os
     import trimesh
 
-    num_views = 5
+    num_views = 11
     dataset = Co3d_Seq(split='train', 
-                       mask_bg='rand', resolution=224, aug_crop=16,
+                       mask_bg=False, resolution=224, aug_crop=16,
                        num_views=num_views, degree=90, sel_num=3)
 
     save_dir = "visualization/co3d_seq_views"
     os.makedirs(save_dir, exist_ok=True)
+
+    # import tqdm
+    # for idx in tqdm.tqdm(np.random.permutation(len(dataset))):
+    #     views = dataset[(idx,0)]
+    #     print([view['instance'] for view in views])
 
     for idx in np.random.permutation(len(dataset))[:10]:
     # for idx in range(len(dataset))[5:10000:2000]:
@@ -191,7 +203,6 @@ if __name__ == "__main__":
         all_color=[]
         for i, view in enumerate(views):
             img = np.array(view['img']).transpose(1, 2, 0)
-            # save_path = osp.join(save_dir, str(idx), f"{'_'.join(view_name(view).split('/')[1:])}.jpg")
             save_path = osp.join(save_dir, str(idx), f"{i}_{view['label']}")
             # img=cv2.COLOR_RGB2BGR(img)
             img=img[...,::-1]
@@ -199,6 +210,7 @@ if __name__ == "__main__":
             cv2.imwrite(save_path, img*255)
             print(f"save to {save_path}")
             pts3d = np.array(view['pts3d']).reshape(-1,3)
+            img = img[...,::-1]
             pct = trimesh.PointCloud(pts3d, colors=img.reshape(-1, 3))
             pct.export(save_path.replace('.jpg','.ply'))
             all_pts.append(pts3d)
@@ -207,10 +219,3 @@ if __name__ == "__main__":
         all_color = np.concatenate(all_color, axis=0)
         pct = trimesh.PointCloud(all_pts, all_color)
         pct.export(osp.join(save_dir, str(idx), f"all.ply"))
-    # np.random.seed(43)
-    # # views = dataset[(431519,0)]
-    # for idx in np.random.permutation(len(dataset))[::1000]:
-    # # for idx in range(len(dataset)):
-    #     print(idx)
-    #     views = dataset[(idx,0)]
-    #     print([view['label'] for view in views])

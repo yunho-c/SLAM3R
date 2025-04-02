@@ -36,6 +36,8 @@ def loss_of_one_batch(loss_func, batch, model, criterion, device,
     
 def loss_of_one_batch_multiview(batch, model, criterion, device, 
                                 use_amp=False, ret=None, ref_id=-1):
+    """ Function to compute the reconstruction loss of the Image-to-Points model
+    """
     views = batch
     for view in views:
         for name in 'img pts3d valid_mask camera_pose'.split():  # pseudo_focal
@@ -65,6 +67,7 @@ def loss_of_one_batch_multiview(batch, model, criterion, device,
 
 def loss_of_one_batch_multiview_corr_score(batch, model, criterion, device, 
                                 use_amp=False, ret=None, ref_id=-1):
+    
     views = batch
     for view in views:
         for name in 'img pts3d valid_mask camera_pose'.split():  # pseudo_focal
@@ -142,6 +145,12 @@ def loss_of_one_batch_l2w(batch, model, criterion, device,
                                 use_amp=False, ret=None, 
                                 ref_ids=-1, coord_frame_id=0, 
                                 exclude_ident=True, to_zero=True):
+    """ Function to compute the reconstruction loss of the Local-to-World model
+    ref_ids: list of indices of the suppporting frames(excluding the coord_frame)
+    coord_frame_id: all the pointmaps input and output will be in the coord_frame_id's camera coordinate
+    exclude_ident: whether to exclude the coord_frame to simulate real-life inference scenarios
+    to_zero: whether to set the invalid points to zero
+    """
     views = batch
     for view in views:
         for name in 'img pts3d pts3d_cam valid_mask camera_pose'.split():  # pseudo_focal
@@ -156,6 +165,7 @@ def loss_of_one_batch_l2w(batch, model, criterion, device,
     c2w = views[coord_frame_id]['camera_pose']  
     w2c = inv(c2w) 
 
+    # exclude the frame that has the identity pose
     if exclude_ident:
         views.pop(coord_frame_id)
     

@@ -17,6 +17,14 @@ from slam3r.utils.recon_utils import *
 
 parser = argparse.ArgumentParser(description="Inference on a wild captured scene")
 parser.add_argument("--device", type=str, default='cuda', help="pytorch device")
+parser.add_argument('--i2p_model', type=str, default="Image2PointsModel(pos_embed='RoPE100', img_size=(224, 224), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), \
+enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12, \
+mv_dec1='MultiviewDecoderBlock_max',mv_dec2='MultiviewDecoderBlock_max', enc_minibatch = 11)")
+parser.add_argument("--l2w_model", type=str, default="Local2WorldModel(pos_embed='RoPE100', img_size=(224, 224), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), \
+enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12, \
+mv_dec1='MultiviewDecoderBlock_max',mv_dec2='MultiviewDecoderBlock_max', enc_minibatch = 11, need_encoder=False)")
+parser.add_argument('--i2p_weights', type=str, help='path to the weights of i2p model')
+parser.add_argument("--l2w_weights", type=str, help="path to the weights of l2w model")
 input_group = parser.add_mutually_exclusive_group(required=True)
 input_group.add_argument("--dataset", type=str, help="a string indicating the dataset")
 input_group.add_argument("--img_dir", type=str, help="directory of the input images")
@@ -120,7 +128,17 @@ def save_recon(views, pred_frame_num, save_dir, scene_id, save_all_views=False,
     sampled_pts = res_pcds[sampled_idx]
     sampled_rgbs = res_rgbs[sampled_idx]
     save_ply(points=sampled_pts[:,:3], save_path=join(save_dir, save_name), colors=sampled_rgbs)
-    
+
+
+def load_model(model_name, weights, device='cuda'):
+    print('Loading model: {:s}'.format(model_name))
+    model = eval(model_name)
+    model.to(device)
+    print('Loading pretrained: ', weights)
+    ckpt = torch.load(weights, map_location=device)
+    print(model.load_state_dict(ckpt['model'], strict=False))
+    del ckpt  # in case it occupies memory
+    return model   
     
 @torch.no_grad()
 def get_img_tokens(views, model):
@@ -631,10 +649,16 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     #----------Load model and ckpt-----------
-    i2p_model = Image2PointsModel.from_pretrained('siyan824/slam3r_i2p')
-    l2w_model = Local2WorldModel.from_pretrained('siyan824/slam3r_l2w')
-    i2p_model.to(args.device)
-    l2w_model.to(args.device)
+    if args.i2p_weights is not None:
+        i2p_model = load_model(args.i2p_model, args.i2p_weights, args.device)
+    else:
+        i2p_model = Image2PointsModel.from_pretrained('siyan824/slam3r_i2p')
+        i2p_model.to(args.device)
+    if args.l2w_weights is not None:
+        l2w_model = load_model(args.l2w_model, args.l2w_weights, args.device)
+    else:
+        l2w_model = Local2WorldModel.from_pretrained('siyan824/slam3r_l2w')
+        l2w_model.to(args.device)
     i2p_model.eval()
     l2w_model.eval()
 

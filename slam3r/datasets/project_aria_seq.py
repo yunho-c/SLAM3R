@@ -19,15 +19,15 @@ from slam3r.utils.image import imread_cv2
 
 class Aria_Seq(BaseStereoViewDataset):
     def __init__(self,  
-                 ROOT='data/projectaria_ase_processed', 
+                 ROOT='data/projectaria/ase_processed', 
                  num_views=2, 
-                 scene_name=None,
-                 sample_freq=1,
-                 start_freq=1,
-                 filter=False,
-                 rand_sel=False,
-                 winsize=0, 
-                 sel_num=0,
+                 scene_name=None,   # specify scene name(s) to load
+                 sample_freq=1,  # stride of the frmaes inside the sliding window
+                 start_freq=1,  # start frequency for the sliding window
+                 filter=False,  # filter out the windows with abnormally large stride
+                 rand_sel=False,  # randomly select views from a window
+                 winsize=0,  # window size to randomly select views
+                 sel_num=0,  # number of combinations to randomly select from a window
                  *args,**kwargs):
         super().__init__(*args, **kwargs)
         self.ROOT = ROOT
@@ -46,14 +46,13 @@ class Aria_Seq(BaseStereoViewDataset):
             self.winsize = sample_freq*(num_views-1)
         
         self.scene_names = os.listdir(self.ROOT)
-        #按照scene_name转化为int排序
         self.scene_names = [int(scene_name) for scene_name in self.scene_names if scene_name.isdigit()]
         self.scene_names = sorted(self.scene_names)
         self.scene_names = [str(scene_name) for scene_name in self.scene_names]
         total_scene_num = len(self.scene_names)
         
         if self.split == 'train':
-            #挑选十分之九的数据作为训练集
+            # choose 90% of the data as training set
             self.scene_names = self.scene_names[:int(total_scene_num*0.9)]
         elif self.split=='test':
             self.scene_names = self.scene_names[int(total_scene_num*0.9):]
@@ -77,7 +76,6 @@ class Aria_Seq(BaseStereoViewDataset):
         self.sceneids = []  
         self.images = []
         self.intrinsics = []   #scene_num*(3,3)
-        # self.trajectories = []  #c2w  (4,4)
         self.win_bid = []
 
         num_count = 0
@@ -115,10 +113,8 @@ class Aria_Seq(BaseStereoViewDataset):
         if self.rand_sel:
             sid, eid = self.win_bid[idx//self.sel_num]
             if idx % self.sel_num == 0:
-                #生成sid与eid之间的均匀采样
                 return np.linspace(sid, eid, self.num_views, endpoint=True, dtype=int)
                 
-            #首尾必须选择，中间随机选择n-2个
             if self.num_views == 2:
                 return [sid, eid]
             sel_ids = rng.choice(range(sid+1, eid), self.num_views-2, replace=False)
@@ -145,8 +141,8 @@ class Aria_Seq(BaseStereoViewDataset):
             rgb_image = imread_cv2(osp.join(scene_dir, 'color', basename))
             # Load depthmap
             depthmap = imread_cv2(osp.join(scene_dir, 'depth', basename.replace('.jpg', '.png')), cv2.IMREAD_UNCHANGED)
-            depthmap = depthmap.astype(np.float32) / 1000
             depthmap[~np.isfinite(depthmap)] = 0  # invalid
+            depthmap = depthmap.astype(np.float32) / 1000
             depthmap[depthmap > 20] = 0  # invalid
             
             rgb_image, depthmap, intrinsics = self._crop_resize_if_necessary(
@@ -165,14 +161,11 @@ class Aria_Seq(BaseStereoViewDataset):
         return views  
 
 if __name__ == "__main__":
-    from slam3r.datasets.base.base_stereo_view_dataset import view_name
-    from slam3r.viz import SceneViz, auto_cam_size
-    from slam3r.utils.image import rgb
     import trimesh
 
     num_views = 4
     # dataset = Aria_Seq(resolution=(224,224), 
-    #                              num_views=4,
+    #                              num_views=num_views,
     #                              start_freq=1, sample_freq=2)
     dataset = Aria_Seq(split='train', resolution=(224,224), 
                                  num_views=num_views,
@@ -181,7 +174,6 @@ if __name__ == "__main__":
     os.makedirs(save_dir, exist_ok=True)
 
     for idx in np.random.permutation(len(dataset))[:10]:
-    # for idx in range(len(dataset))[5:10000:2000]:
         os.makedirs(osp.join(save_dir, str(idx)), exist_ok=True)
         views = dataset[(idx,0)]
         assert len(views) == num_views
@@ -196,6 +188,7 @@ if __name__ == "__main__":
             img = (img+1)/2
             cv2.imwrite(save_path, img*255)
             print(f"save to {save_path}")
+            img = img[...,::-1]
             pts3d = np.array(view['pts3d']).reshape(-1,3)
             pct = trimesh.PointCloud(pts3d, colors=img.reshape(-1, 3))
             pct.export(save_path.replace('.jpg','.ply'))
@@ -205,6 +198,3 @@ if __name__ == "__main__":
         all_color = np.concatenate(all_color, axis=0)
         pct = trimesh.PointCloud(all_pts, all_color)
         pct.export(osp.join(save_dir, str(idx), f"all.ply"))
-    # for idx in range(len(dataset)):
-    #     views = dataset[(idx,0)]
-    #     print([view['label'] for view in views])

@@ -176,8 +176,8 @@ class Jointnorm_Regr3D (Criterion, MultiLoss):
         self.dist_clip = dist_clip
 
     def get_all_pts3d(self, gts, preds, ref_id, in_camera=None, norm_scale=None, dist_clip=None):
-        # everything is normalized w.r.t. camera of view1
-        # print(ref_id)
+        # everything is normalized w.r.t. in_camera.
+        # pointcloud normalization is conducted with the distance from the origin if norm_scale is None, otherwise use a fixed norm_scale
         if in_camera is None:
             in_camera = inv(gts[ref_id]['camera_pose'])
         gt_pts = []
@@ -207,9 +207,8 @@ class Jointnorm_Regr3D (Criterion, MultiLoss):
             else:
                 # print(gt_pts[0].shape, norm_scale.shape) 
                 gt_pts = [gt_pts[i] / norm_scale for i in range(len(gt_pts))]
-                # print("norm_scale", norm_scale)
         else:
-            # normalize 3d points(见原论文3D regression loss)
+            # normalize 3d points(see 3D regression loss in DUSt3R paper)
             if self.norm_mode:
                 pred_pts = multiview_normalize_pointcloud(pred_pts, self.norm_mode, valids)
             if self.norm_mode and not self.gt_scale:
