@@ -96,6 +96,16 @@ class ScanNetpp_Seq(BaseStereoViewDataset):
                     continue
                 metadata = np.load(metadata_path)
                 image_names = metadata['images'].tolist()
+                
+                # check if the images are in the same sequence, 
+                # only work for certain scenes in ScanNet++ V2
+                if img_type == 'dslr':
+                    prefixes = [name[0:3] for name in image_names]
+                    if len(set(prefixes)) > 1:
+                        # dslr images are not in the same sequence
+                        print(f"Warning: {scene_name} {img_type} images are not in the same sequence {set(prefixes)}")
+                        continue
+                    
                 assert image_names == sorted(image_names)
                 image_names = sorted(image_names)
                 intrinsics = metadata['intrinsics']

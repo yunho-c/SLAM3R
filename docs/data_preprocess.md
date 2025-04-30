@@ -12,7 +12,7 @@ python datasets_preprocess/preprocess_scannetpp.py \
 
 the processed data will be saved at `./data/scannetpp_processed`
 
-> We only use ScanNetpp-V1 (280 scenes in total) to train and validate our SLAM3R models now. For ScanNetpp-V2, there are 906 scenes that you can leverage.
+> We only use ScanNetpp-V1 (280 scenes in total) to train and validate our SLAM3R models now. ScanNetpp-V2 (906 scenes) is available for potential use, but you may need to modify the scripts for certain scenes in it.
 
 ### Aria Synthetic Environments
 

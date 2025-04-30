@@ -6,7 +6,7 @@ TL;DR: A real-time RGB SLAM system that performs dense 3D reconstruction via poi
 
 
 <p align="center">
-  <h2 align="center">[CVPR 2025] SLAM3R: Real-Time Dense Scene Reconstruction from Monocular RGB Videos</h2>
+  <h2 align="center">[CVPR 2025 Highlight] SLAM3R: Real-Time Dense Scene Reconstruction from Monocular RGB Videos</h2>
  <p align="center">
     <a href="https://ly-kc.github.io/">Yuzheng Liu*</a>
     ·
@@ -22,7 +22,13 @@ TL;DR: A real-time RGB SLAM system that performs dense 3D reconstruction via poi
     ·
     <a href="https://baoquanchen.info/">Baoquan Chen</a>
   </p>
-  <h3 align="center"><a href="https://arxiv.org/abs/2412.09401">Paper</a> | <a href="">Online Demo (Coming Soon)</a> </h3>
+  <h3 align="center"><a href="https://arxiv.org/abs/2412.09401">Paper</a> | <a href="">Poster</a> </h3>
+<!-- <div style="line-height: 1;" align=center>
+  <a href="https://arxiv.org/abs/2412.09401" target="_blank" style="margin: 2px;">
+    <img alt="Arxiv" src="https://img.shields.io/badge/Arxiv-SLAM3R-red" style="display: inline-block; vertical-align: middle;"/>
+  </a>
+</div> -->
+
   <div align="center"></div>
 </p>
 
@@ -37,13 +43,21 @@ TL;DR: A real-time RGB SLAM system that performs dense 3D reconstruction via poi
 <be>
 
 
-## TODO List
+## News
 
-- [x] Release pre-trained weights and inference code.
-- [x] Release Gradio Demo.
-- [x] Release evaluation code. 
-- [x] Release training code and data.
+* **2025-04:** SLAM3R is reported by [机器之心(Chinese)](https://mp.weixin.qq.com/s/fK5vJwbogcfwoduI9FuQ6w) 
 
+* **2025-04:** 🎉 SLAM3R is selected as a **highlight paper** in CVPR 2025 and **Top1 paper** in China3DV 2025.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Demo](#demo)
+- [Gradio interface](#gradio-interface)
+- [Evaluation on the Replica dataset](#Evaluation-on-the-Replica-dataset)
+- [Training](#training)
+- [Citation](#citation)
+- [Acknowledgments](#acknowledgments)
 
 ## Installation
 
@@ -69,6 +83,7 @@ pip install -r requirements_optional.txt
 # install XFormers according to your pytorch version, see https://github.com/facebookresearch/xformers
 pip install xformers==0.0.28.post2
 # compile cuda kernels for RoPE
+# if the compilation fails, try the propoesd solution: https://github.com/CUT3R/CUT3R/issues/7.
 cd slam3r/pos_embed/curope/
 python setup.py build_ext --inplace
 cd ../../../
@@ -122,7 +137,9 @@ The interface can be launched with the following command:
  python app.py
  ```
 
-<img src="media/gradio_office.jpg" style="zoom: 33%;" />
+Here is a demo GIF for the Gradio interface (accelerated).
+
+<img src="media/gradio_office.gif" style="zoom: 66%;" />
 
 
 ## Evaluation on the Replica dataset

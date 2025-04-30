@@ -13,7 +13,6 @@ from slam3r.models import Local2WorldModel, Image2PointsModel
 from slam3r.utils.device import to_numpy
 from slam3r.utils.recon_utils import *
 
-
 def get_args_parser():
     parser = argparse.ArgumentParser()
     parser_url = parser.add_mutually_exclusive_group()
@@ -386,7 +385,6 @@ def get_model_from_scene(per_frame_res, save_dir,
     sampled_idx = np.random.choice(valid_ids, n_samples, replace=False)
     sampled_pts = res_pcds[sampled_idx]
     sampled_rgbs = res_rgbs[sampled_idx]
-    
     sampled_pts[:, :2] *= -1 # flip the x,y axis for better visualization
     
     save_name = f"recon.glb"
@@ -396,6 +394,26 @@ def get_model_from_scene(per_frame_res, save_dir,
     scene.export(save_path)
 
     return save_path
+
+def display_inputs(images):
+    img_label = "Click or use the left/right arrow keys to browse images", 
+
+    if images is None or len(images) == 0:
+        return [gradio.update(label=img_label, value=None, visible=False, selected_index=0, scale=2, preview=True, height=300,),
+                gradio.update(value=None, visible=False, scale=2, height=300,)]  
+
+    if isinstance(images, str): 
+        file_path = images
+        video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm'}
+        if any(file_path.endswith(ext) for ext in video_extensions):
+            return [gradio.update(label=img_label, value=None, visible=False, selected_index=0, scale=2, preview=True, height=300,),
+                gradio.update(value=file_path, autoplay=True, visible=True, scale=2, height=300,)]
+        else:
+            return [gradio.update(label=img_label, value=None, visible=False, selected_index=0, scale=2, preview=True, height=300,),
+                    gradio.update(value=None, visible=False, scale=2, height=300,)] 
+            
+    return [gradio.update(label=img_label, value=images, visible=True, selected_index=0, scale=2, preview=True, height=300,),
+            gradio.update(value=None, visible=False, scale=2, height=300,)]
 
 def change_inputfile_type(input_type):
     #刷新gradio.File中的文件
@@ -462,6 +480,7 @@ def change_buffer_strategy(buffer_strategy):
 
 def main_demo(i2p_model, l2w_model, device, tmpdirname, server_name, server_port):
     recon_scene_func = functools.partial(recon_scene, i2p_model, l2w_model, device)
+    
     with gradio.Blocks(css=""".gradio-container {margin: 0 !important; min-width: 100%};""", title="SLAM3R Demo") as demo:
         # scene state is save so that you can change num_points_save... without rerunning the inference
         per_frame_res = gradio.State(None)
@@ -482,7 +501,18 @@ def main_demo(i2p_model, l2w_model, device, tmpdirname, server_name, server_port
                                          scale=2,
                                          height=200,
                                          label="Select a directory containing images")
-                
+              
+                image_gallery = gradio.Gallery(label="Click or use the left/right arrow keys to browse images",
+                                            visible=False,
+                                            selected_index=0,
+                                            preview=True, 
+                                            height=300,
+                                            scale=2)
+                video_gallery = gradio.Video(label="Uploaded Video",
+                                            visible=False,
+                                            height=300,
+                                            scale=2)
+
             with gradio.Row():
                 kf_stride = gradio.Dropdown(["auto", "manual setting"], label="how to choose stride between keyframes",
                                            value='auto', interactive=True,  
@@ -537,9 +567,13 @@ def main_demo(i2p_model, l2w_model, device, tmpdirname, server_name, server_port
                                       label="number of points sampled from the result",
                                       )
 
-            outmodel = gradio.Model3D()
+            outmodel = gradio.Model3D(height=500,
+                                      clear_color=(0.,0.,0.,0.3)) 
             
             # events
+            inputfiles.change(display_inputs,
+                                inputs=[inputfiles],
+                                outputs=[image_gallery, video_gallery])
             input_type.change(change_inputfile_type,
                                 inputs=[input_type],
                                 outputs=[inputfiles, video_extract_fps])
