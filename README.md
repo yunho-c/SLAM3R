@@ -72,7 +72,7 @@ cd SLAM3R
 conda create -n slam3r python=3.11 cmake=3.14.0
 conda activate slam3r 
 # install torch according to your cuda version
-pip install torch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0 --index-url https://download.pytorch.org/whl/cu118
+pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124
 pip install -r requirements.txt
 # optional: install additional packages to support visualization and data preprocessing
 pip install -r requirements_optional.txt
@@ -81,7 +81,7 @@ pip install -r requirements_optional.txt
 3. Optional: Accelerate SLAM3R with XFormers and custom cuda kernels for RoPE
 ```bash
 # install XFormers according to your pytorch version, see https://github.com/facebookresearch/xformers
-pip install xformers==0.0.28.post2
+pip install xformers==0.0.28.post3
 # compile cuda kernels for RoPE
 # if the compilation fails, try the propoesd solution: https://github.com/CUT3R/CUT3R/issues/7.
 cd slam3r/pos_embed/curope/
@@ -128,7 +128,7 @@ A Open3D window will appear after running the script. Please click `space key` t
 You can run SLAM3R on your self-captured video with the steps above. Here are [some tips](./docs/recon_tips.md) for it
 
 
-## Gradio interface
+`## Gradio interface
 We also provide a Gradio interface, where you can upload a directory, a video or specific images to perform the reconstruction. After setting the reconstruction parameters, you can click the 'Run' button to start the process. Modifying the visualization parameters at the bottom allows you to directly display different visualization results without rerunning the inference.
 
 The interface can be launched with the following command:
